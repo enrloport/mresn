@@ -1,27 +1,3 @@
-# using Pkg
-# Pkg.add("Augmentor")
-# Pkg.add("BenchmarkTools")
-# Pkg.add("CSV")
-# Pkg.add("CUDA")
-# Pkg.add("DataFrames")
-# Pkg.add("Dates")
-# Pkg.add("DelimitedFiles")
-# Pkg.add("Distributions")
-# Pkg.add("Graphs")
-# Pkg.add("Images")
-# Pkg.add("LinearAlgebra")
-# Pkg.add("Metaheuristics")
-# Pkg.add("MLDatasets")
-# Pkg.add("NetCDF")
-# Pkg.add("Plots")
-# Pkg.add("Random")
-# Pkg.add("SimpleWeightedGraphs")
-# Pkg.add("SparseArrays")
-# Pkg.add("StableRNGs")
-# Pkg.add("StatsBase")
-# Pkg.add("Suppressor")
-
-
 # Load external libraries
 
 using Augmentor
