@@ -22,15 +22,26 @@ function ln(x)
     return sign*res
 end
 
-# for i in rng
-#     v = i
-#     println(v," ", ln(v))
-# end
+#Generalised Logistic Curve
+# A: Upper asymptote
+# K: Lower asymptote
+# C: Typically takes a value of 1. Otherwise, the upper asymptote is A + (K-A) / (C^(1/v))
+# B: Growth rate
+# v > 0: affects near which asymptote maximum growth occurs
+# Q: is related to the value glc(0)
+function glc(x; A=-10, K=10, C=1, B=0.5, v=1, Q=1)
+    return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
+end
 
-# test1 = [ln(x/50) for x in -1000:100:1000]
-# half = floor(Int, length(test) / 2)
-# plot(0-half:half, test1)
-# test1[10:15]'
+for i in -10:10
+    v = i
+    println(v," ", glc(v))
+end
+
+test1 = [glc(x/50) for x in -1000:100:1000]
+half = floor(Int, length(test1) / 2)
+plot(0-half:half, test1)
+test1[10:15]'
 
 # Random.seed!(42)
 
