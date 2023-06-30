@@ -40,11 +40,11 @@ test_x , test_y  = MNIST(split=:test)[:]
 #train_x, train_y = FashionMNIST(split=:train)[:]
 #test_x, test_y = FashionMNIST(split=:test)[:]
 
-repit =1
+repit =500
 _params = Dict{Symbol,Any}(
-     :gpu           => false
-    ,:wb            => false
-    ,:wb_logger_name=> "MRESN_log_mnist_GPU"
+     :gpu           => true
+    ,:wb            => true
+    ,:wb_logger_name=> "MRESN_glc_mnist_GPU"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
     ,:beta          => 1.0e-10
     ,:train_length  => size(train_y)[1]
@@ -139,7 +139,7 @@ test_x  = transform_mnist(test_x, sz, _params[:test_length])
 for _ in 1:repit
     sd = rand(1:10000)
     Random.seed!(sd)
-    _params[:num_esns] = 2 # rand([10,15,20,25])
+    _params[:num_esns] = 20 # rand([10,15,20,25])
     _params[:num_hadamard] = 0 # rand([1,2])
     _params_esn = Dict{Symbol,Any}(
         :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
@@ -147,7 +147,7 @@ for _ in 1:repit
         ,:density  => rand(Uniform(0.01,0.7),_params[:num_esns])
         ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
-        ,:nodes    => [500 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
+        ,:nodes    => [1000 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
         ,:sgmds    => rand([glc],_params[:num_esns])
         # ,:sgmds    => [ ln for _ in 1:_params[:num_esns] ]
         ,:bs       => rand(Uniform(1,4),_params[:num_esns])
