@@ -13,22 +13,9 @@ using Wandb
 # B: Growth rate
 # v > 0: affects near which asymptote maximum growth occurs
 # Q: is related to the value glc(0)
-function glc(x; A=-5, K=5, C=1, B=0.2, v=1, Q=1)
+function glc(x; A=-1.0, K=1.0, C=1.0, B=1.0, v=1.0, Q=1.0)
     return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
 end
-
-for i in -10:10
-    v = i
-    println(v," ", glc(v))
-end
-
-# b = 0.1
-# max = 4
-# x = [x for x in -1000:10:1000]
-# y = [glc(i/50;B=b) for i in x ]
-# ys = [ [glc(i/50;B=b/10) for i in x ] for b in 1:max]
-# plot(x,ys; title="B influence in glc", labels= [b/10 for b in 1:max]' )
-
 
 # Random.seed!(42)
 
@@ -51,8 +38,22 @@ _params = Dict{Symbol,Any}(
     ,:test_length   => size(test_y)[1]
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
+    # ,:B => 0.007
+    # ,:K => 1.5
 )
 
+
+#for i in -10:10
+#    v = i
+#    println(v," ", glc(v))
+#end
+
+# b = 0.1
+# max = 4
+# x = [x for x in -1000:10:1000]
+# y = [glc(i/50;B=b) for i in x ]
+# ys = [ [glc(i/50;B=b/10) for i in x ] for b in 1:max]
+# plot(x,ys; title="B influence in glc", labels= [b/10 for b in 1:max]' )
 
 
 function do_batch(_params_esn, _params,sd)
@@ -65,7 +66,7 @@ function do_batch(_params_esn, _params,sd)
     densities= _params_esn[:density]
     alphas   = _params_esn[:alpha]
     r_scales = _params_esn[:R_scaling]
-
+    glcs     = _params_esn[:glcs]
     esns = [
         ESN( 
              R      = _params[:gpu] ? CuArray(new_R(nodes[i], density=densities[i], rho=rhos[i])) : new_R(nodes[i], density=densities[i], rho=rhos[i])
@@ -74,7 +75,8 @@ function do_batch(_params_esn, _params,sd)
             ,alpha  = alphas[i]
             ,rho    = rhos[i]
             ,sigma  = sigmas[i]
-            ,sgmd   = _x -> sgmds[i](_x; B =_params_esn[:bs][i] )
+            #,sgmd   = _x -> sgmds[i](_x; B =_params_esn[:bs][i] )
+            ,sgmd = glcs[i]
         ) for i in 1:_params[:num_esns]
     ]
 
@@ -150,7 +152,8 @@ for _ in 1:repit
         ,:nodes    => [1000 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
         ,:sgmds    => rand([glc],_params[:num_esns])
         # ,:sgmds    => [ ln for _ in 1:_params[:num_esns] ]
-        ,:bs       => rand(Uniform(1,4),_params[:num_esns])
+        # ,:bs       => rand(Uniform(1,4),_params[:num_esns])
+        ,:glcs     => [ x-> glc(x;B=rand()) for _ in 1:_params[:num_esns]]
     )
     _params[:initial_transient] = rand([1,2,3])
     _params[:image_size]   = sz
@@ -170,12 +173,15 @@ for _ in 1:repit
         , "Initial transient"  => _params[:initial_transient]
         , "seed"               => sd
         , "sgmds"              => _params_esn[:sgmds]
-        , "bs"                 => _params_esn[:bs]
+        # , "bs"                 => _params_esn[:bs]
         , "alphas"             => _params_esn[:alpha]
         , "densities"          => _params_esn[:density]
         , "rhos"               => _params_esn[:rho]
         , "sigmas"             => _params_esn[:sigma]
         , "R_scalings"         => _params_esn[:R_scaling]
+        , "glcs"               => _params_esn[:glcs]
+        # , "B" => _params[:B]
+        # , "K" => _params[:K]
         )
     if _params[:wb]
         using Logging
