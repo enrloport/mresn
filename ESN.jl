@@ -30,7 +30,7 @@ Data= Union{DataFrame, Mtx, Vector, Array, CuArray}
 
 # Includes
 include.( filter(contains(r".jl$"), readdir("./files/"; join=true)))
-include.( filter(contains(r".jl$"), readdir("./files/basic_functions"; join=true)))
+#include.( filter(contains(r".jl$"), readdir("./files/basic_functions"; join=true)))
 include.( filter(contains(r".jl$"), readdir("./files/grid_functions"; join=true)))
 include.( filter(contains(r".jl$"), readdir("./files/plot_functions"; join=true)))
 include.( filter(contains(r".jl$"), readdir("./files/reservoir_generators"; join=true)))

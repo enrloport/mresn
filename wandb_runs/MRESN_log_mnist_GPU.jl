@@ -29,19 +29,20 @@ end
 # B: Growth rate
 # v > 0: affects near which asymptote maximum growth occurs
 # Q: is related to the value glc(0)
-function glc(x; A=-10, K=10, C=1, B=0.5, v=1, Q=1)
-    return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
-end
+#function glc(x; A=-5, K=5, C=1, B=0.01, v=1, Q=1)
+    #B = rand()
+#    return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
+#end
 
-for i in -10:10
-    v = i
-    println(v," ", glc(v))
-end
+#for i in -10:10
+#    v = i
+#    println(v," ", glc(v))
+#end
 
-test1 = [glc(x/50) for x in -1000:100:1000]
-half = floor(Int, length(test1) / 2)
-plot(0-half:half, test1)
-test1[10:15]'
+#test1 = [glc(x/50) for x in -1000:100:1000]
+#half = floor(Int, length(test1) / 2)
+#plot(0-half:half, test1)
+#test1[10:15]'
 
 # Random.seed!(42)
 
@@ -53,20 +54,23 @@ test_x , test_y  = MNIST(split=:test)[:]
 #train_x, train_y = FashionMNIST(split=:train)[:]
 #test_x, test_y = FashionMNIST(split=:test)[:]
 
-repit =1
-_params = Dict{Symbol,Any}(
+repit =500
+global _params = Dict{Symbol,Any}(
      :gpu           => true
-    ,:wb            => false
-    ,:wb_logger_name=> "MRESN_log_mnist_GPU"
-    #,:wb_logger_name=> "MrESN_small_Fmnist_GPU"
+    ,:wb            => true
+    ,:wb_logger_name=> "MRESN_glc_mnist_GPU"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
     ,:beta          => 1.0e-10
     ,:train_length  => size(train_y)[1]
     ,:test_length   => size(test_y)[1]
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
+    ,:B => 0.005
+    ,:K => 1.5
 )
-
+function glc(x; A=-1.5, K=1.5, B=0.005, C=1, v=1, Q=1)
+    return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
+end
 
 
 function do_batch(_params_esn, _params,sd)
@@ -89,6 +93,8 @@ function do_batch(_params_esn, _params,sd)
             ,rho    = rhos[i]
             ,sigma  = sigmas[i]
             ,sgmd   = sgmds[i]
+	    #,sgmd = inpt -> glc(inpt;B=_params_esn[:Bs][i])
+            #,sgmd = function f(inpt) return glc(inpt;B=_params_esn[:Bs][i]) end
         ) for i in 1:_params[:num_esns]
     ]
 
@@ -153,7 +159,7 @@ test_x  = transform_mnist(test_x, sz, _params[:test_length])
 for _ in 1:repit
     sd = rand(1:10000)
     Random.seed!(sd)
-    _params[:num_esns] = 2 # rand([10,15,20,25])
+    _params[:num_esns] = 20 # rand([10,15,20,25])
     _params[:num_hadamard] = 0 # rand([1,2])
     _params_esn = Dict{Symbol,Any}(
         :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
@@ -161,9 +167,10 @@ for _ in 1:repit
         ,:density  => rand(Uniform(0.01,0.7),_params[:num_esns])
         ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
-        ,:nodes    => [500 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
-        ,:sgmds    => rand([sigmoid, tanh],_params[:num_esns])
-        # ,:sgmds    => [ ln for _ in 1:_params[:num_esns] ]
+        ,:nodes    => [1000 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
+        #,:sgmds    => rand([sigmoid, tanh],_params[:num_esns])
+        ,:sgmds    => [ glc for _ in 1:_params[:num_esns] ]
+        #,:Bs       => rand(Uniform(0.01,0.9),_params[:num_esns])
     )
     _params[:initial_transient] = rand([1,2,3])
     _params[:image_size]   = sz
@@ -172,7 +179,7 @@ for _ in 1:repit
     _params[:train_labels] = train_y
     _params[:test_labels]  = test_y
     par = Dict(
-        "Classical reservoirs" => _params[:num_esns]
+        "Reservoirs" => _params[:num_esns]
         ,"Hadamard reservoirs" => _params[:num_hadamard]
         , "Total nodes"        => sum(_params_esn[:nodes]) + sz[1]*sz[2] * _params[:num_hadamard]
         # , "Total nodes"       => _params[:num_esns] * _params_esn[:nodes] + sz[1]*sz[2] * _params[:num_hadamard]
@@ -188,7 +195,9 @@ for _ in 1:repit
         , "rhos"               => _params_esn[:rho]
         , "sigmas"             => _params_esn[:sigma]
         , "R_scalings"         => _params_esn[:R_scaling]
-        )
+	, "B"                  => _params[:B]
+        , "K"                  => _params[:K]
+	)
     if _params[:wb]
         using Logging
         using Wandb
