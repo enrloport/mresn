@@ -22,17 +22,18 @@ test_x, test_y = FashionMNIST(split=:test)[:]
 
 
 function transform_mnist(train_x, sz, trl)
-    trx = map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
+    trx = train_x #map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
     trx = mapslices(
         x-> imresize(x[ vec(mapslices(col -> any(col .!= 0), x, dims = 2)), vec(mapslices(col -> any(col .!= 0), x, dims = 1))], sz), train_x[:,:,1:trl] ,dims=(1,2)
     )
     return trx
 end
 
-px      = 25 # rand([14,20,25,28])
+px      = 28 # rand([14,20,25,28])
 sz      = (px,px)
-train_x = transform_mnist(train_x, sz, length(train_y) )
-test_x  = transform_mnist(test_x, sz, length(test_y) )
+# train_x = transform_mnist(train_x, sz, length(train_y) )
+# test_x  = transform_mnist(test_x, sz, length(test_y) )
+
 # train_x = transform_mnist(train_x, sz, _params[:train_length] )
 # test_x  = transform_mnist(test_x, sz, _params[:test_length])
 
@@ -52,7 +53,7 @@ _params = Dict{Symbol,Any}(
     ,:test_length   => size(test_y)[1]
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
-    ,:num_esns      => 10 # rand([10,15,20,25])
+    ,:num_esns      => 20 # rand([10,15,20,25])
     ,:num_hadamard  => 0 # rand([1,2])
     ,:initial_transient => 1 #rand([1,2,3])
     ,:image_size   => sz
@@ -62,7 +63,7 @@ _params = Dict{Symbol,Any}(
     ,:test_labels  => test_y
 )
 
-min_d, max_d = 0.01, 0.7
+min_d, max_d = 0.01, 0.2
 
 _params_esn = Dict{Symbol,Any}(
     :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
@@ -70,9 +71,12 @@ _params_esn = Dict{Symbol,Any}(
     ,:density  => rand(Uniform(min_d, max_d),_params[:num_esns])
     ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
     ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
-    ,:nodes    => [500 for _ in 1:_params[:num_esns] ]
+    ,:nodes    => [1000 for _ in 1:_params[:num_esns] ]
 )
 
+
+
+############################################################################ LOG
 
 par = Dict(
     "Reservoirs" => _params[:num_esns]
@@ -111,6 +115,10 @@ par = Dict(""=>0)
 GC.gc()
 
 
+
+
+############################################################################ MRESN CREATION
+
 esns = [
         ESN( 
              R      = _params[:gpu] ? CuArray(new_R(_params_esn[:nodes][i], density=_params_esn[:density][i], rho=_params_esn[:rho][i])) : new_R(_params_esn[:nodes][i], density=_params_esn[:density][i], rho=_params_esn[:rho][i])
@@ -124,39 +132,26 @@ esns = [
     ]
 
 
-# const _B = _params[:B]
-# const _K = _params[:K]
-
-# #Generalised Logistic Curve
-# # A: Upper asymptote
-# # K: Lower asymptote
-# # C: Typically takes a value of 1. Otherwise, the upper asymptote is A + (K-A) / (C^(1/v))
-# # B: Growth rate
-# # v > 0: affects near which asymptote maximum growth occurs
-# # Q: is related to the value glc(0)
-# function glc(x; A=-_K, K=_K, C=1.0, B=_B, v=1.0, Q=1.0)
-#     return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/v) )
-# end
+mrE = MrESN(
+    esns=esns
+    ,beta=_params[:beta] 
+    ,train_function = _params[:train_f]
+    ,test_function = _params[:test_f]
+)
 
 
 
 
+############################################################################ PSO ALGORITHM
 
 
-function do_batch(_params_esn, _params, k,b,v,q)
+function do_batch(mrE, _params, k,b,v,q)
 
     function glc(x; A=-k, K=k, C=1.0, B=b, V=v, Q=q)
         return A + ( (K-A) / (C + Q*MathConstants.e^(-B*x) )^(1/V) )
     end
 
     tms = @elapsed begin
-        mrE = MrESN(
-            esns=esns
-            ,beta=_params[:beta] 
-            ,train_function = _params[:train_f]
-            ,test_function = _params[:test_f]
-        )
-
         for e in mrE.esns
             e.sgmd = glc
         end
@@ -184,7 +179,9 @@ function do_batch(_params_esn, _params, k,b,v,q)
         Wandb.log(_params[:lg], to_log )
     else
         display(to_log)
+        println(" ")
     end
+    GC.gc()
     return mrE
 end
 
@@ -192,30 +189,30 @@ end
 function fitness(x)
     k,b,v,q = x[1], x[2], x[3], x[4]
 
-    res = do_batch(_params_esn, _params, k,b,v,q)
+    res = do_batch(mrE, _params, k,b,v,q)
     # Wandb.log(lg , Dict("error" => res[:error] ,"A" => a ,"K" => k , "B" => q, "Q" => q ) )
     return res.error
 end
 
 
 
-
-
-pso = PSO(;N=500, information=Metaheuristics.Information()
-    ,C1 = 0.1
-    ,C2 = 0.1
-    ,ω  = 0.05
-    ,options = Options(iterations=100)
+pso = PSO(;information=Metaheuristics.Information()
+    ,N  = 20
+    ,C1 = 1.0
+    ,C2 = 1.0
+    ,ω  = 0.5
+    ,options = Options(iterations=1000)
 )
 
 # Cota superior e inferior de individuos. alpha, beta, rho, sigma
 lx = [0.0, 0.0, 0.0, 0.0 ]'
-ux = [1.0, 1.0, 1.0, 1.0 ]'
+ux = [1.5, 1.5, 1.5, 1.5 ]'
 lx_ux = vcat(lx,ux)
 
 res = optimize( fitness, lx_ux, pso )
 
 
-close(_params[:lg])
-
+if _params[:wb]
+    close(_params[:lg])
+end
 # EOF
