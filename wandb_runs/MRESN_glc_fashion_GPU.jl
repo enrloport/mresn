@@ -28,7 +28,7 @@ _params = Dict{Symbol,Any}(
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
     ,:B => 0.5
-    ,:K => 0.25
+    ,:K => 0.5
 )
 const _B = _params[:B]
 const _K = _params[:K]
@@ -115,19 +115,19 @@ function do_batch(_params_esn, _params,sd)
 end
 
 
-#function transform_mnist(train_x, sz, trl)
-#    trx = map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
-#    trx = mapslices(x-> imresize(x, sz), trx[:,:,1:trl] ,dims=(1,2))
-#    return trx
-#end
-
-function transform_mnist(train_x, sz, trl)
-    trx = map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
-    trx = mapslices(
-        x-> imresize(x[ vec(mapslices(col -> any(col .!= 0), x, dims = 2)), vec(mapslices(col -> any(col .!= 0), x, dims = 1))], sz), train_x[:,:,1:trl] ,dims=(1,2)
-    )
+function transform_fashionmnist(train_x, sz, trl)
+    trx = train_x # map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
+    trx = mapslices(x-> imresize(x, sz), trx[:,:,1:trl] ,dims=(1,2))
     return trx
 end
+
+#function transform_mnist(train_x, sz, trl)
+#    trx = map(x-> x > 0.3 ? 1.0 : x > 0.0 ? 0.5 : 0, train_x)
+#    trx = mapslices(
+#        x-> imresize(x[ vec(mapslices(col -> any(col .!= 0), x, dims = 2)), vec(mapslices(col -> any(col .!= 0), x, dims = 1))], sz), train_x[:,:,1:trl] ,dims=(1,2)
+#    )
+#    return trx
+#end
 
 #function transform_mnist(train_x, sz, trl)
 #    trx = mapslices(
@@ -140,10 +140,13 @@ end
 
 
 # r1      = 0
-px      = 25 # rand([14,20,25,28])
+px      = 28 # rand([14,20,25,28])
 sz      = (px,px)
-train_x = transform_mnist(train_x, sz, _params[:train_length] )
-test_x  = transform_mnist(test_x, sz, _params[:test_length])
+#train_x = transform_mnist(train_x, sz, _params[:train_length] )
+#test_x  = transform_mnist(test_x, sz, _params[:test_length])
+
+train_x = transform_fashionmnist(train_x, sz, _params[:train_length] )
+test_x  = transform_fashionmnist(test_x, sz, _params[:test_length])
 
 for _ in 1:repit
     sd = rand(1:10000)
