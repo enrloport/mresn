@@ -27,7 +27,7 @@ end
 
 
 
-repit =500
+repit = 500
 _params = Dict{Symbol,Any}(
      :gpu           => true
     ,:wb            => true
@@ -107,6 +107,8 @@ function do_batch(_params_esn, _params,sd)
         "Total time" => tms
         ,"Train time"=> tm_train
         ,"Test time" => tm_test
+        ,"Seed" => sd
+        ,"Alpha" => alphas[1]
         ,"Initial transient" => _params[:initial_transient]
         ,"Error"     => mrE.error
     )
@@ -129,7 +131,7 @@ for _ in 1:repit
     max_d, min_d = 0.005, 0.2
     _params_esn = Dict{Symbol,Any}(
         :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
-        ,:alpha    => rand(Uniform(0.5,1.0),_params[:num_esns])
+        # ,:alpha    => rand(Uniform(0.001,0.999),_params[:num_esns])
         ,:density  => rand(Uniform(max_d, min_d),_params[:num_esns])
         ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
@@ -151,9 +153,9 @@ for _ in 1:repit
         , "Test length"        => _params[:test_length]
         , "Resized"            => _params[:image_size][1]
         , "Nodes per reservoir"=> _params_esn[:nodes]
-        , "seed"               => sd
+        # , "seed"               => sd
         , "sgmds"              => _params_esn[:sgmds]
-        , "alphas"             => _params_esn[:alpha]
+        # , "alphas"             => _params_esn[:alpha]
         , "beta"               => _params[:beta]
 	    , "densities"          => _params_esn[:density]
         , "max_density"        => max_d
@@ -175,23 +177,33 @@ for _ in 1:repit
     par = Dict(""=>0)
     GC.gc()
 
-    for in_tr in 0:9
-        _params[:initial_transient] = in_tr
-        tm = @elapsed begin
-            r1 = do_batch(_params_esn,_params, sd)
+    # r1=[]
+    # tm=0
+    for a in [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+        _params_esn[:alpha] = [ a for _ in 1:_params[:num_esns] ]
+
+        if _params[:wb]
+            _params[:lg] = wandb_logger(_params[:wb_logger_name])
+        else
+            display(par)
+        end
+        for in_tr in 0:9
+            _params[:initial_transient] = in_tr
+            tm = @elapsed begin
+                r1 = do_batch(_params_esn,_params, sd)
+            end
+        end
+
+        if _params[:wb]
+            close(_params[:lg])
         end
     end
-
-
-    if _params[:wb]
-        close(_params[:lg])
-    end
-    println("Error: ", r1.error )
-    if _params[:gpu]
-        println("Time GPU: ", tm )
-    else
-        println("Time CPU: ", tm )
-    end
+    # println("Error: ", r1.error )
+    # if _params[:gpu]
+    #     println("Time GPU: ", tm )
+    # else
+    #     println("Time CPU: ", tm )
+    # end
 
 end
 
