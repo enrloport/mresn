@@ -42,9 +42,9 @@ test_x  = transform_mnist(test_x, sz, length(test_y) )
 ############################################################################ PARAMETERS
 
 
-repit =10
+repit =50
 _params = Dict{Symbol,Any}(
-     :gpu           => false
+     :gpu           => true
     ,:wb            => true
     ,:wb_logger_name=> "MRESN_pso glc_Mnist_GPU"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
@@ -191,13 +191,26 @@ function fitness(x)
     return res.error
 end
 
+pso_dict = Dict(
+    "N"  => 10
+    ,"C1" => 1.0
+    ,"C2" => 1.0
+    ,"w"  => 0.5
+    ,"max_iter" => 10
+)
 
+if _params[:wb]
+    using Logging
+    using Wandb
+    _params[:lg] = wandb_logger(_params[:wb_logger_name])
+    Wandb.log(_params[:lg], pso_dict )
+else
+    display(pso_dict)
+    println(" ")
+end
 
 for _ in 1:repit
     if _params[:wb]
-        using Logging
-        using Wandb
-        _params[:lg] = wandb_logger(_params[:wb_logger_name])
         Wandb.log(_params[:lg], par )
     else
         display(par)
@@ -205,11 +218,11 @@ for _ in 1:repit
 
 
     pso = PSO(;information=Metaheuristics.Information()
-        ,N  = 10
-        ,C1 = 1.0
-        ,C2 = 1.0
-        ,ω  = 0.5
-        ,options = Options(iterations=10)
+        ,N  = pso_dict["N"]
+        ,C1 = pso_dict["C1"]
+        ,C2 = pso_dict["C2"]
+        ,ω  = pso_dict["w"]
+        ,options = Options(iterations=pso_dict["max_iter"])
     )
 
     # Cota superior e inferior de individuos. alpha, beta, rho, sigma
