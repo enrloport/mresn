@@ -7,7 +7,7 @@ using Wandb
 
 ############################################################################ SEED
 
-seed = 4036 #42
+seed = 42
 Random.seed!(seed)
 
 ############################################################################ DATASET
@@ -42,9 +42,9 @@ test_x  = transform_mnist(test_x, sz, length(test_y) )
 ############################################################################ PARAMETERS
 
 
-# repit =500
+repit =10
 _params = Dict{Symbol,Any}(
-     :gpu           => true
+     :gpu           => false
     ,:wb            => true
     ,:wb_logger_name=> "MRESN_pso glc_Mnist_GPU"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
@@ -53,8 +53,7 @@ _params = Dict{Symbol,Any}(
     ,:test_length   => size(test_y)[1]
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
-    ,:num_esns      => 20 # rand([10,15,20,25])
-    ,:num_hadamard  => 0 # rand([1,2])
+    ,:num_esns      => 10 # rand([10,15,20,25])
     ,:initial_transient => 1 #rand([1,2,3])
     ,:image_size   => sz
     ,:train_data   => train_x
@@ -80,9 +79,7 @@ _params_esn = Dict{Symbol,Any}(
 
 par = Dict(
     "Reservoirs" => _params[:num_esns]
-    ,"Hadamard reservoirs" => _params[:num_hadamard]
-    , "Total nodes"        => sum(_params_esn[:nodes]) + sz[1]*sz[2] * _params[:num_hadamard]
-    # , "Total nodes"       => _params[:num_esns] * _params_esn[:nodes] + sz[1]*sz[2] * _params[:num_hadamard]
+    , "Total nodes"        => sum(_params_esn[:nodes])
     , "Train length"       => _params[:train_length]
     , "Test length"        => _params[:test_length]
     , "Resized"            => _params[:image_size][1]
@@ -101,18 +98,18 @@ par = Dict(
     , "preprocess"         => "yes"
 )
 
-if _params[:wb]
-    using Logging
-    using Wandb
-    _params[:lg] = wandb_logger(_params[:wb_logger_name])
-    Wandb.log(_params[:lg], par )
-else
-    display(par)
-end
+# if _params[:wb]
+#     using Logging
+#     using Wandb
+#     _params[:lg] = wandb_logger(_params[:wb_logger_name])
+#     Wandb.log(_params[:lg], par )
+# else
+#     display(par)
+# end
 
 
-par = Dict(""=>0)
-GC.gc()
+# par = Dict(""=>0)
+# GC.gc()
 
 
 
@@ -196,23 +193,36 @@ end
 
 
 
-pso = PSO(;information=Metaheuristics.Information()
-    ,N  = 100
-    ,C1 = 1.0
-    ,C2 = 1.0
-    ,ω  = 0.5
-    ,options = Options(iterations=100)
-)
-
-# Cota superior e inferior de individuos. alpha, beta, rho, sigma
-lx = [0.0, 0.0, 0.0, 0.0 ]'
-ux = [1.5, 1.5, 1.5, 1.5 ]'
-lx_ux = vcat(lx,ux)
-
-res = optimize( fitness, lx_ux, pso )
+for _ in 1:repit
+    if _params[:wb]
+        using Logging
+        using Wandb
+        _params[:lg] = wandb_logger(_params[:wb_logger_name])
+        Wandb.log(_params[:lg], par )
+    else
+        display(par)
+    end
 
 
-if _params[:wb]
-    close(_params[:lg])
+    pso = PSO(;information=Metaheuristics.Information()
+        ,N  = 10
+        ,C1 = 1.0
+        ,C2 = 1.0
+        ,ω  = 0.5
+        ,options = Options(iterations=10)
+    )
+
+    # Cota superior e inferior de individuos. alpha, beta, rho, sigma
+    lx = [0.0, 0.0, 0.0, 0.0 ]'
+    ux = [1.5, 1.5, 1.5, 1.5 ]'
+    lx_ux = vcat(lx,ux)
+
+    res = optimize( fitness, lx_ux, pso )
+
+
+    if _params[:wb]
+        close(_params[:lg])
+    end
 end
+
 # EOF
