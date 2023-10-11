@@ -7,7 +7,7 @@ using Wandb
 
 ############################################################################ SEED
 
-seed = 42
+seed = 4036
 Random.seed!(seed)
 
 ############################################################################ DATASET
@@ -53,7 +53,7 @@ _params = Dict{Symbol,Any}(
     ,:test_length   => size(test_y)[1]
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
-    ,:num_esns      => 10 # rand([10,15,20,25])
+    ,:num_esns      => 20 # rand([10,15,20,25])
     ,:initial_transient => 1 #rand([1,2,3])
     ,:image_size   => sz
     ,:train_data   => train_x
@@ -196,7 +196,7 @@ pso_dict = Dict(
     ,"C1" => 1.0
     ,"C2" => 1.0
     ,"w"  => 0.5
-    ,"max_iter" => 10
+    ,"max_iter" => 20
 )
 
 if _params[:wb]
