@@ -3,6 +3,7 @@ using MLDatasets
 using BenchmarkTools
 using CUDA
 CUDA.allowscalar(false)
+using Logging
 using Wandb
 
 
@@ -15,6 +16,9 @@ cn = CIFAR10().metadata["class_names"]
 
 train_x, train_y = train.features, train.targets
 test_x,  test_y  = test.features, test.targets
+
+px      = 32 # rand([14,20,25,28])
+sz      = (px,px)
 
 # 1 "airplane"
 # 2 "automobile"
@@ -38,10 +42,10 @@ test_x,  test_y  = test.features, test.targets
 # colorview(RGB, pd)
 
 
-repit =1
+repit =50
 _params = Dict{Symbol,Any}(
      :gpu           => true
-    ,:wb            => false
+    ,:wb            => true
     ,:wb_logger_name=> "MRESN_glc_cifar10_GPU"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
     ,:beta          => 1.0e-10
@@ -112,7 +116,7 @@ function do_batch(_params_esn, _params,sd)
         tm_train = @elapsed begin
             mrE.train_function(mrE,_params)
         end
-	println("Maximum X: ", maximum(mrE.X))
+        println("Maximum X: ", maximum(mrE.X))
         println("TRAIN FINISHED, ", tm_train)
         tm_test = @elapsed begin
             mrE.test_function(mrE,_params)
@@ -124,7 +128,10 @@ function do_batch(_params_esn, _params,sd)
         "Total time" => tms
         ,"Train time"=> tm_train
         ,"Test time" => tm_test
-       , "Error"     => mrE.error
+        ,"Error"     => mrE.error
+        ,"conf_mat"  => Wandb.wandb.plot.confusion_matrix(
+            y_true = test_y[1:_params[:test_length]], preds = [x[1] for x in mrE.Y], class_names = ["0","1","2","3","4","5","6","7","8","9"]
+        )
     )
     if _params[:wb] 
         Wandb.log(_params[:lg], to_log )
@@ -134,10 +141,6 @@ function do_batch(_params_esn, _params,sd)
     return mrE
 end
 
-# r1      = 0
-px      = 32 # rand([14,20,25,28])
-sz      = (px,px)
-
 
 # include("../ESN.jl")
 for _ in 1:repit
@@ -145,15 +148,15 @@ for _ in 1:repit
     Random.seed!(sd)
     _params[:num_esns] = 10 # rand([10,15,20,25])
     _params[:num_hadamard] = 0 # rand([1,2])
-    max_d, min_d = 0.005, 0.2
+    min_d, max_d = 0.005, 0.2
     _params_esn = Dict{Symbol,Any}(
         :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
-        ,:alpha    => rand(Uniform(0.5,1.0),_params[:num_esns])
+        ,:alpha    => rand(Uniform(0.3,0.7),_params[:num_esns])
         #,:density  => rand(Uniform(0.01,0.7),_params[:num_esns])
-        ,:density  => rand(Uniform(max_d, min_d),_params[:num_esns])
+        ,:density  => rand(Uniform(min_d, max_d),_params[:num_esns])
         ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
-        ,:nodes    => [1000 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
+        ,:nodes    => [200 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
         #,:sgmds    => rand([glc, tanh, sigmoid],_params[:num_esns])
         ,:sgmds    => rand([ glc ],_params[:num_esns])
         #,:sgmds    => rand([ tanh ],_params[:num_esns])
@@ -168,7 +171,6 @@ for _ in 1:repit
         "Reservoirs" => _params[:num_esns]
         ,"Hadamard reservoirs" => _params[:num_hadamard]
         , "Total nodes"        => sum(_params_esn[:nodes]) + sz[1]*sz[2] * _params[:num_hadamard]
-        # , "Total nodes"       => _params[:num_esns] * _params_esn[:nodes] + sz[1]*sz[2] * _params[:num_hadamard]
         , "Train length"       => _params[:train_length]
         , "Test length"        => _params[:test_length]
         , "Resized"            => _params[:image_size][1]
@@ -178,20 +180,18 @@ for _ in 1:repit
         , "sgmds"              => _params_esn[:sgmds]
         , "alphas"             => _params_esn[:alpha]
         , "beta"               => _params[:beta]
-	    , "densities"          => _params_esn[:density]
+        , "densities"          => _params_esn[:density]
         , "max_density"        => max_d
-	    , "min_density"        => min_d
-	    , "rhos"               => _params_esn[:rho]
+        , "min_density"        => min_d
+        , "rhos"               => _params_esn[:rho]
         , "sigmas"             => _params_esn[:sigma]
         , "R_scalings"         => _params_esn[:R_scaling]
         , "Constant term"      => 1 # _params[:num_esns]
-	    , "preprocess"         => "yes"
-	    , "B" => _params[:B]
+        , "preprocess"         => "no"
+        , "B" => _params[:B]
         , "K" => _params[:K]
         )
     if _params[:wb]
-        using Logging
-        using Wandb
         _params[:lg] = wandb_logger(_params[:wb_logger_name])
         Wandb.log(_params[:lg], par )
     else
