@@ -27,15 +27,15 @@ end
 
 
 
-repit = 500
+repit = 1
 _params = Dict{Symbol,Any}(
      :gpu           => true
     ,:wb            => true
     ,:wb_logger_name=> "MRESN_tanh_mnist_GPU_IT"
     ,:classes       => [0,1,2,3,4,5,6,7,8,9]
     ,:beta          => 1.0e-10
-    ,:train_length  => size(train_y)[1]
-    ,:test_length   => size(test_y)[1]
+    ,:train_length  => size(train_y)[1] -55000
+    ,:test_length   => size(test_y)[1]  -9000
     ,:train_f       => __do_train_MrESN_mnist!
     ,:test_f        => __do_test_MrESN_mnist!
 )
@@ -71,20 +71,6 @@ function do_batch(_params_esn, _params,sd)
         ) for i in 1:_params[:num_esns]
     ]
 
-    for _ in 1:_params[:num_hadamard]
-        push!(esns,
-            ESN(
-                R      = _params[:gpu] ? CuArray(new_R_img(sz[1],sz[2])) : new_R_img(sz[1],sz[2])
-                ,R_in   = _params[:gpu] ? CuArray(rand(Uniform(-0.5,0.5), 1, im_sz )) : rand(Uniform(-0.5,0.5), im_sz, 1 )
-                ,hadamard=true
-                ,R_scaling = 1.0
-                ,alpha  = 0.7
-                ,rho    = 1.0
-                ,sigma  = 0.5
-            )
-        )
-    end
-
     tms = @elapsed begin
         mrE = MrESN(
             esns=esns
@@ -102,7 +88,7 @@ function do_batch(_params_esn, _params,sd)
         end
         println("TEST FINISHED, ", tm_test)
     end
- 
+
     to_log = Dict(
         "Total time" => tms
         ,"Train time"=> tm_train
@@ -111,6 +97,9 @@ function do_batch(_params_esn, _params,sd)
         ,"Alpha" => alphas[1]
         ,"Initial transient" => _params[:initial_transient]
         ,"Error"     => mrE.error
+        ,"conf_mat" => Wandb.wandb.plot.confusion_matrix(
+            y_true = test_y[1:_params[:test_length]], preds = [x[1] for x in mrE.Y], class_names = ["0","1","2","3","4","5","6","7","8","9"]
+        )
     )
     if _params[:wb] 
         Wandb.log(_params[:lg], to_log )
@@ -126,13 +115,13 @@ end
 for _ in 1:repit
     sd = rand(1:10000)
     Random.seed!(sd)
-    _params[:num_esns] = 10 # rand([10,15,20,25])
-    _params[:num_hadamard] = 0 # rand([1,2])
-    max_d, min_d = 0.005, 0.2
+    _params[:num_esns] = 5 # rand([10,15,20,25])
+    #_params[:num_hadamard] = 0 # rand([1,2])
+    min_d, max_d = 0.005, 0.2
     _params_esn = Dict{Symbol,Any}(
         :R_scaling => rand(Uniform(0.5,1.5),_params[:num_esns])
         # ,:alpha    => rand(Uniform(0.001,0.999),_params[:num_esns])
-        ,:density  => rand(Uniform(max_d, min_d),_params[:num_esns])
+        ,:density  => rand(Uniform(min_d, max_d),_params[:num_esns])
         ,:rho      => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:sigma    => rand(Uniform(0.5,1.5),_params[:num_esns])
         ,:nodes    => [1000 for _ in 1:_params[:num_esns] ] # rand([500, px*px ,1000],_params[:num_esns])
@@ -146,8 +135,8 @@ for _ in 1:repit
     _params[:test_labels]  = test_y
     par = Dict(
         "Reservoirs" => _params[:num_esns]
-        ,"Hadamard reservoirs" => _params[:num_hadamard]
-        , "Total nodes"        => sum(_params_esn[:nodes]) + sz[1]*sz[2] * _params[:num_hadamard]
+        # ,"Hadamard reservoirs" => _params[:num_hadamard]
+        , "Total nodes"        => sum(_params_esn[:nodes]) #+ sz[1]*sz[2] * _params[:num_hadamard]
         # , "Total nodes"       => _params[:num_esns] * _params_esn[:nodes] + sz[1]*sz[2] * _params[:num_hadamard]
         , "Train length"       => _params[:train_length]
         , "Test length"        => _params[:test_length]
@@ -177,33 +166,26 @@ for _ in 1:repit
     par = Dict(""=>0)
     GC.gc()
 
-    # r1=[]
-    # tm=0
-    for a in [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+    for a in [0.7, 0.9, 1.0]
         _params_esn[:alpha] = [ a for _ in 1:_params[:num_esns] ]
 
-        if _params[:wb]
-            _params[:lg] = wandb_logger(_params[:wb_logger_name])
-        else
-            display(par)
-        end
         for in_tr in 0:9
             _params[:initial_transient] = in_tr
             tm = @elapsed begin
+                if _params[:wb]
+                    _params[:lg] = wandb_logger(_params[:wb_logger_name])
+                else
+                    display(par)
+                end
                 r1 = do_batch(_params_esn,_params, sd)
+
+                if _params[:wb]
+                    close(_params[:lg])
+                end
             end
         end
 
-        if _params[:wb]
-            close(_params[:lg])
-        end
     end
-    # println("Error: ", r1.error )
-    # if _params[:gpu]
-    #     println("Time GPU: ", tm )
-    # else
-    #     println("Time CPU: ", tm )
-    # end
 
 end
 
