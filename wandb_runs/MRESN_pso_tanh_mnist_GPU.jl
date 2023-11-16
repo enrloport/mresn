@@ -3,12 +3,13 @@ using MLDatasets
 using BenchmarkTools
 using CUDA
 CUDA.allowscalar(false)
+using Logging
 using Wandb
 
 ############################################################################ SEED
 
-seed = 42
-Random.seed!(seed)
+seed = 128
+# Random.seed!(seed)
 
 ############################################################################ DATASET
 
@@ -81,8 +82,8 @@ par = Dict(
     , "Nodes per reservoir"=> _params_esn[:nodes]
     , "seed"               => seed
     , "beta"               => _params[:beta]
-    , "max_density"        => max_d
-    , "min_density"        => min_d
+    # , "max_density"        => max_d
+    # , "min_density"        => min_d
     , "Constant term"      => 1 # _params[:num_esns]
     , "preprocess"         => "yes"
 )
@@ -103,6 +104,8 @@ function do_batch( _params,_a,_d,_r,_s,_i )
     _params[:initial_transient] = _i
 
     ##### MRESN CREATION
+
+    Random.seed!(seed) # Same seed to generate esn, but different hyperparameters due to PSO.
     esns = [
             ESN( 
                  R      = _params[:gpu] ? CuArray(new_R(_params_esn[:nodes][i], density=_d, rho=_r)) : new_R(_params_esn[:nodes][i], density=_d, rho=_r)
@@ -164,29 +167,25 @@ function fitness(x)
 end
 
 pso_dict = Dict(
-    "N"  => 30
-    ,"C1" => 1.0
-    ,"C2" => 1.0
-    ,"w"  => 0.5
-    ,"max_iter" => 20
+    "N"  => 25
+    ,"C1" => 3.0
+    ,"C2" => 1.5
+    ,"w"  => 1.0
+    ,"max_iter" => 25
 )
 
-if _params[:wb]
-    using Logging
-    using Wandb
-    _params[:lg] = wandb_logger(_params[:wb_logger_name])
-    Wandb.log(_params[:lg], pso_dict )
-else
-    display(pso_dict)
-    println(" ")
-end
 
-for _ in 1:repit
+for _it in 1:repit
     if _params[:wb]
         _params[:lg] = wandb_logger(_params[:wb_logger_name])
+        if _it == 1
+            Wandb.log(_params[:lg], pso_dict )
+        end
         Wandb.log(_params[:lg], par )
     else
         display(par)
+        display(pso_dict)
+        println(" ")
     end
 
 
