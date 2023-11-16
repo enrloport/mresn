@@ -312,3 +312,19 @@ end
 function mse(l1,l2)
     return sum((l1 .- l2).^2) / length(l2)
 end
+
+
+function confusion_matrix(classes::Vector{String}, predictions::Vector{Int64}, targets::Vector{Int64})
+    len = length(classes)
+    println(len)
+
+    mtx = zeros(len,len)
+    println(predictions, ", ", length(predictions) )
+    println(targets, ", ", length(targets))
+    for i in 1:length(targets)
+        println(i)
+        t,p = targets[i], predictions[i]
+        mtx[t+1,p+1] += 1
+    end
+    return mtx
+end
