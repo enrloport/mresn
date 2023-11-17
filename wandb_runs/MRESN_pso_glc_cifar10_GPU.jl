@@ -29,7 +29,7 @@ sz      = (px,px)
 ############################################################################ PARAMETERS
 
 
-repit =1
+repit =10
 _params = Dict{Symbol,Any}(
      :gpu           => true
     ,:wb            => true
@@ -129,7 +129,7 @@ function do_batch(mrE, _params, k,b,v,q)
         tm_train = @elapsed begin
             mrE.train_function(mrE,_params)
         end
-	    # println("Maximum X: ", maximum(mrE.X))
+
         println("TRAIN FINISHED, ", tm_train)
         tm_test = @elapsed begin
             mrE.test_function(mrE,_params)
@@ -145,7 +145,10 @@ function do_batch(mrE, _params, k,b,v,q)
         ,"Q" => q
         , "Error"     => mrE.error
     )
-    if _params[:wb] 
+    if _params[:wb]
+        to_log["conf_mat"]  = Wandb.wandb.plot.confusion_matrix(
+            y_true = test_y[1:_params[:test_length]], preds = [x[1] for x in mrE.Y], class_names = ["airplane","automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
+        ) 
         Wandb.log(_params[:lg], to_log )
     else
         display(to_log)
@@ -199,8 +202,8 @@ for _ in 1:repit
         ,options = Options(iterations=pso_dict["max_iter"])
     )
 
-    # Cota superior e inferior de individuos. alpha, beta, rho, sigma
-    lx = [0.0, 0.0, 0.0, 0.0 ]'
+    # Cota superior e inferior de individuos. k,b,v,q
+    lx = [0.0001,0.0001,0.0001,0.0001,]'
     ux = [1.5, 1.5, 1.5, 1.5 ]'
     lx_ux = vcat(lx,ux)
 
