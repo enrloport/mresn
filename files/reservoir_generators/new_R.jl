@@ -1,6 +1,6 @@
 
 
-function new_R( R_size::Int=50; R_scaling::Float64=1.0, rho::Float64=1.0, density=1.0, distribution=Uniform)
+function new_R( R_size::Int=50; R_scaling::Float64=1.0, rho::Float64=1.0, density=1.0, distribution=Uniform, gpu=false)
     if density != 1.0
         W = sprand(R_size, R_size, density, x-> rand(distribution(-R_scaling, R_scaling), x) )
         W = Array(W)
@@ -9,5 +9,6 @@ function new_R( R_size::Int=50; R_scaling::Float64=1.0, rho::Float64=1.0, densit
     end
     set_spectral_radius!( W , rho)
 
+    if gpu W = CuArray(W) end
     return W
 end
