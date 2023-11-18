@@ -145,11 +145,13 @@ function do_batch(mrE, _params, k,b,v,q)
         ,"Q" => q
         , "Error"     => mrE.error
     )
+
     if _params[:wb]
-        to_log["conf_mat"]  = Wandb.wandb.plot.confusion_matrix(
-            y_true = test_y[1:_params[:test_length]], preds = [x[1] for x in mrE.Y], class_names = ["airplane","automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
-        ) 
         Wandb.log(_params[:lg], to_log )
+        Wandb.log(_params[:lg], Dict("conf_mat" => Wandb.wandb.plot.confusion_matrix(
+                y_true = test_y[1:_params[:test_length]], preds = [x[1] for x in mrE.Y], class_names = ["airplane","automobile","bird","cat","deer","dog","frog","horse","ship","truck"]
+            ))
+        )
     else
         display(to_log)
         println(" ")
@@ -168,7 +170,7 @@ function fitness(x)
 end
 
 pso_dict = Dict(
-    "N"  => 10
+    "N"  => 50
     ,"C1" => 1.0
     ,"C2" => 1.0
     ,"w"  => 0.5
