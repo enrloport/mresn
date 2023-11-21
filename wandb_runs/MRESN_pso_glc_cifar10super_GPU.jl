@@ -38,8 +38,8 @@ sz      = (px,px)
 repit =1
 _params = Dict{Symbol,Any}(
      :gpu           => true
-    ,:wb            => true
-    ,:wb_logger_name=> "MRESN_pso glc_cifar10_GPU"
+    ,:wb            => false
+    ,:wb_logger_name=> "MRESN_pso glc_cifar10super_GPU"
     ,:classes       => [0,1]
     ,:beta          => 1.0e-10
     ,:train_length  => size(train_y)[1]
@@ -99,6 +99,8 @@ esns = [
         ESN( 
              R      = _params[:gpu] ? CuArray(new_R(_params_esn[:nodes][i], density=_params_esn[:density][i], rho=_params_esn[:rho][i])) : new_R(_params_esn[:nodes][i], density=_params_esn[:density][i], rho=_params_esn[:rho][i])
             ,R_in   = _params[:gpu] ? CuArray(rand(Uniform(-_params_esn[:sigma][i],_params_esn[:sigma][i]), _params_esn[:nodes][i], sz[1]*sz[2]*3 )) : rand(Uniform(-_params_esn[:sigma][i],_params_esn[:sigma][i]), _params_esn[:nodes][i], sz[1]*sz[2]*3 )
+            # R      = new_R(_params_esn[:nodes][i], density=_params_esn[:density][i], rho=_params_esn[:rho][i], gpu=_params[:gpu])
+            # ,R_in   = new_R_in(_params_esn[:nodes][i], sz[1]*sz[2]; sigma=_params_esn[:sigma][i], density=1.0, gpu=_params[:gpu], channels=3)
             ,R_scaling = _params_esn[:R_scaling][i]
             ,alpha  = _params_esn[:alpha][i]
             ,rho    = _params_esn[:rho][i]
